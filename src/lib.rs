@@ -502,6 +502,8 @@ mod tests {
         assert_eq!(balances[1], 0.into());
     }
 
+    // TODO: For the below use-cases we need to implement some sort of a contract, similar to
+    // https://github.com/near/near-sdk-rs/blob/d996fc433c4d059fc99ee9ffcdff29870c3e87da/examples/multi-token/test-contract-defi/src/lib.rs#L1-L0.
     // TODO: Add a use-case when one token is exchanged for another, using mt_transfer_call.
 
     // TODO: Add a use-case when a set of tokens is exchanged for another set of tokens, using
