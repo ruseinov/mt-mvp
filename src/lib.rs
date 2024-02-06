@@ -1,3 +1,6 @@
+mod defi;
+#[cfg(test)]
+mod defi_test;
 mod receiver;
 mod resolver;
 mod token;
@@ -6,10 +9,10 @@ use crate::receiver::ext_mt_receiver;
 use crate::resolver::ext_mt_resolver;
 use crate::token::{Token, TokenId};
 use crate::KeyPrefix::TokensPerOwner;
-use near_sdk::borsh::BorshSerialize;
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::U128;
-use near_sdk::{env, AccountId, AccountIdRef, BorshStorageKey};
+use near_sdk::{env, near_bindgen, AccountId, AccountIdRef, BorshStorageKey};
 use near_sdk::{require, Gas, PromiseOrValue};
 
 pub type Balance = u128;
@@ -25,7 +28,9 @@ pub enum KeyPrefix {
     TokensPerOwner,
     OwnerTokens,
 }
-
+#[near_bindgen]
+#[derive(BorshSerialize, BorshDeserialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct MultiTokenContract {
     pub owner_id: AccountId,
     // This here is used just for bookkeeping, we don't actually do anything with it, except write
@@ -41,12 +46,13 @@ pub struct MultiTokenContract {
 // necessary checks and optimizations as the goal is to simply verify the public API.
 // That includes storage implementation as the `StorageManagement` trait is not specific to this
 // standard.
+#[near_bindgen]
 impl MultiTokenContract {
     /// Creates a new MultiToken contract.
     ///
     /// # Arguments
     /// * `owner_id` - contract owner.
-    pub fn new(owner_id: AccountId) -> Self {
+    pub fn new(owner_id: AccountId) -> MultiTokenContract {
         let total_supply = LookupMap::new(KeyPrefix::TotalSupply);
         let balances_per_token = UnorderedMap::new(KeyPrefix::BalancesPerToken);
         let owner_by_id = UnorderedMap::new(KeyPrefix::OwnerByTokenId);
