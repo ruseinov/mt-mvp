@@ -6,7 +6,7 @@ mod resolver;
 mod token;
 
 use crate::receiver::ext_mt_receiver;
-use crate::resolver::ext_mt_resolver;
+use crate::resolver::{ext_mt_resolver, MultiTokenResolver};
 use crate::token::{Token, TokenId};
 use crate::KeyPrefix::TokensPerOwner;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
@@ -430,6 +430,71 @@ impl MultiTokenContract {
             .expect("This token does not exist")
             .get(account_id)
             .unwrap_or(0)
+    }
+
+    fn internal_resolve_transfer(
+        &mut self,
+        sender_id: &AccountId,
+        receiver_id: AccountId,
+        token_id: TokenId,
+        amount: Balance,
+        change: Balance,
+    ) -> Balance {
+        if change > 0 {
+            let mut balances = self
+                .balances_per_token
+                .get(&token_id)
+                .expect("Token not found");
+            let receiver_balance = balances.get(&receiver_id).unwrap_or(0);
+
+            if receiver_balance > 0 {
+                // Try to refund at least what's available.
+                let refund_amount = std::cmp::min(receiver_balance, change);
+
+                // In case that got spent in the meantime.
+                if let Some(new_receiver_balance) = receiver_balance.checked_sub(refund_amount) {
+                    balances.insert(&receiver_id, &new_receiver_balance);
+                } else {
+                    env::panic_str("The receiver account doesn't have enough balance");
+                }
+
+                // If sender has a balance - refund.
+                if let Some(sender_balance) = balances.get(sender_id) {
+                    if let Some(new_sender_balance) = sender_balance.checked_add(refund_amount) {
+                        balances.insert(sender_id, &new_sender_balance);
+                        return amount
+                            .checked_sub(refund_amount)
+                            .unwrap_or_else(|| env::panic_str("total supply overflow"));
+                    }
+                    env::panic_str("Sender balance overflow")
+                }
+
+                // If not - burn.
+                self.total_supply
+                    .get(&token_id)
+                    .as_mut()
+                    .expect("no token found")
+                    .checked_sub(refund_amount)
+                    .unwrap_or_else(|| env::panic_str("total supply overflow"));
+
+                return amount
+                    .checked_sub(refund_amount)
+                    .unwrap_or_else(|| env::panic_str("total supply overflow"));
+            }
+        }
+        amount
+    }
+}
+
+impl MultiTokenResolver for MultiTokenContract {
+    fn mt_resolve_transfer(
+        &mut self,
+        sender_id: AccountId,
+        receiver_id: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
+    ) -> Vec<U128> {
+        todo!()
     }
 }
 

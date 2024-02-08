@@ -94,8 +94,14 @@ impl MultiTokenReceiver for DeFi {
             } => {
                 require!(
                     amounts.len() == change_amounts.len(),
-                    "invalid change amounts supplied"
+                    "change amounts have to correspond to token_ids"
                 );
+
+                for (index, amount) in amounts.iter().enumerate() {
+                    if amount < change_amounts.get(index).unwrap() {
+                        env::panic_str("change amounts can't be bigger than transfer amounts");
+                    }
+                }
 
                 ext_defi_escrow_transfer::ext(self.multi_token_account_id.clone())
                     .escrow_transfer(sender_id, token_ids, amounts, change_amounts)
